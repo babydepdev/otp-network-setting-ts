@@ -98,6 +98,15 @@ const FormNetworkSetting: React.FC = () => {
   const [accessPoint, setAccessPoint] = useState("");
   const [passwordAccessPoint, setPasswordAccessPoint] = useState("");
 
+  const [errors, setErrors] = useState({
+    ethernetIp: false,
+    wifiIp: false,
+    ethernetGateway: false,
+    wifiGateway: false,
+    ethernetDNS: false,
+    wifiDNS: false,
+  });
+
   /**
    * Handle changes to DNS address fields.
    * @param e - Change event from the input field.
@@ -188,6 +197,14 @@ const FormNetworkSetting: React.FC = () => {
     document.body.removeChild(anchor);
   };
 
+  const validateIP = (ip: string, isCIDR: boolean = false) => {
+    const CHECK_FORMAT =
+      /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const CHECK_FORMAT_PORT =
+      /^(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(?:3[0-2]|[12]?[0-9])$/;
+    return isCIDR ? CHECK_FORMAT_PORT.test(ip) : CHECK_FORMAT.test(ip);
+  };
+
   /**
    * Handle form submission and generate YAML configuration.
    * @param e - Form event.
@@ -195,7 +212,7 @@ const FormNetworkSetting: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const fileJSON:any = {
+    const fileJSON: any = {
       network: {
         version: 2,
       },
@@ -218,6 +235,27 @@ const FormNetworkSetting: React.FC = () => {
           },
         };
       } else {
+        const isIpAddressValid = validateIP(ipAddress.ethernet, true);
+        const isIpGatewayValid = validateIP(ipGateway.ethernet, false);
+        const isDnsAddressValid = validateIP(dnsAddress.ethernet, false);
+
+        if (!isIpAddressValid || !isIpGatewayValid || !isDnsAddressValid) {
+          setErrors({
+            ...errors,
+            ethernetIp: !isIpAddressValid,
+            ethernetGateway: !isIpGatewayValid,
+            ethernetDNS: !isDnsAddressValid,
+          });
+          return;
+        }
+
+        setErrors({
+          ...errors,
+          ethernetIp: false,
+          ethernetGateway: false,
+          ethernetDNS: false,
+        });
+
         fileJSON.network.ethernets = {
           eth0: {
             dhcp4: false,
@@ -249,6 +287,27 @@ const FormNetworkSetting: React.FC = () => {
           },
         };
       } else {
+        const isIpAddressValid = validateIP(ipAddress.wifi, true);
+        const isIpGatewayValid = validateIP(ipGateway.wifi, false);
+        const isDnsAddressValid = validateIP(dnsAddress.wifi, false);
+
+        if (!isIpAddressValid || !isIpGatewayValid || !isDnsAddressValid) {
+          setErrors({
+            ...errors,
+            wifiIp: !isIpAddressValid,
+            wifiGateway: !isIpGatewayValid,
+            wifiDNS: !isDnsAddressValid,
+          });
+          return;
+        }
+
+        setErrors({
+          ...errors,
+          wifiIp: false,
+          wifiGateway: false,
+          wifiDNS: false,
+        });
+
         fileJSON.network.wifis = {
           wlan0: {
             "access-points": {
@@ -339,6 +398,7 @@ const FormNetworkSetting: React.FC = () => {
                   value={priority.ethernet}
                   name="ethernet"
                   onChange={(e) => handlePriorityChange(e)}
+                  error={priority.ethernet == ""}
                 >
                   <MenuItem value={100}>100</MenuItem>
                   <MenuItem value={200}>200</MenuItem>
@@ -371,6 +431,10 @@ const FormNetworkSetting: React.FC = () => {
                     placeholder="xxx.xxx.xxx.xx/xx"
                     onChange={handleChangeIpAddress}
                     name="ethernet"
+                    error={errors.ethernetIp}
+                    helperText={
+                      errors.ethernetIp ? "Invalid IP address format" : ""
+                    }
                   />
                   <Typography>Default Gateway</Typography>
                   <TextField
@@ -378,6 +442,10 @@ const FormNetworkSetting: React.FC = () => {
                     placeholder="xxx.xxx.xxx.xx"
                     onChange={handleChangeIpGateway}
                     name="ethernet"
+                    error={errors.ethernetGateway}
+                    helperText={
+                      errors.ethernetGateway ? "Invalid IP Gateway format" : ""
+                    }
                   />
                   <Typography>2. Obtain DNS server address</Typography>
                   <Typography>Preferred DNS Server</Typography>
@@ -386,6 +454,10 @@ const FormNetworkSetting: React.FC = () => {
                     placeholder="x.x.x.x"
                     onChange={handleChangeDNSAddress}
                     name="ethernet"
+                    error={errors.ethernetDNS}
+                    helperText={
+                      errors.ethernetDNS ? "Invalid DNS Server format" : ""
+                    }
                   />
                 </FormControl>
               )}
@@ -413,6 +485,7 @@ const FormNetworkSetting: React.FC = () => {
                   value={priority.wifi}
                   name="wifi"
                   onChange={(e) => handlePriorityChange(e)}
+                  error={priority.wifi == ""}
                 >
                   <MenuItem value={100}>100</MenuItem>
                   <MenuItem value={200}>200</MenuItem>
@@ -443,11 +516,18 @@ const FormNetworkSetting: React.FC = () => {
                   variant="outlined"
                   placeholder="Access Point Name"
                   onChange={(e) => setAccessPoint(e.target.value)}
+                  error={accessPoint == ""}
+                  helperText={
+                    errors.wifiGateway ? "Access Point Name Empty" : ""
+                  }
                 />
                 <Typography>Password</Typography>
                 <TextField
                   variant="outlined"
+                  type="password"
                   onChange={(e) => setPasswordAccessPoint(e.target.value)}
+                  error={passwordAccessPoint == ""}
+                  helperText={errors.wifiGateway ? "Password Empty" : ""}
                 />
                 {ipSelected.wifi === "manual" && (
                   <>
@@ -457,6 +537,10 @@ const FormNetworkSetting: React.FC = () => {
                       placeholder="xxx.xxx.xxx.xx/xx"
                       name="wifi"
                       onChange={handleChangeIpAddress}
+                      error={errors.wifiIp}
+                      helperText={
+                        errors.wifiIp ? "Invalid IP address format" : ""
+                      }
                     />
                     <Typography>Default Gateway</Typography>
                     <TextField
@@ -464,6 +548,12 @@ const FormNetworkSetting: React.FC = () => {
                       placeholder="xxx.xxx.xxx.xx"
                       name="wifi"
                       onChange={handleChangeIpGateway}
+                      error={errors.wifiGateway}
+                      helperText={
+                        errors.wifiGateway
+                          ? "Invalid Gateway address format"
+                          : ""
+                      }
                     />
                     <Typography>Preferred DNS Server</Typography>
                     <TextField
@@ -471,6 +561,10 @@ const FormNetworkSetting: React.FC = () => {
                       placeholder="x.x.x.x"
                       name="wifi"
                       onChange={handleChangeDNSAddress}
+                      error={errors.wifiDNS}
+                      helperText={
+                        errors.wifiDNS ? "Invalid DNS Server format" : ""
+                      }
                     />
                   </>
                 )}
@@ -499,6 +593,7 @@ const FormNetworkSetting: React.FC = () => {
                   value={priority.cellular}
                   name="cellular"
                   onChange={(e) => handlePriorityChange(e)}
+                  error={priority.cellular == ""}
                 >
                   <MenuItem value={100}>100</MenuItem>
                   <MenuItem value={200}>200</MenuItem>
